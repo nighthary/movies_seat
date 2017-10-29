@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" id="viewport_map"
+          content="user-scalable=no, initial-scale=1, width=device-width, height=device-height" />
+    <script src="scripts/seat.js"></script>
+</head>
+<style type="text/css">
+    *{
+        margin: 0;
+        padding: 0;
+        user-select: none;
+    }
+
+    *, :after, :before {
+        -webkit-tap-highlight-color: rgba(0,0,0,0);
+    }
+    html, body{
+        width: 100%;
+        height: 100%;
+    }
+    .demo{
+        touch-action: auto;
+
+        width: 100%;
+        height: auto;
+        float: left;
+        overflow: hidden;
+    }
+</style>
+<body>
+    <div class="demo">
+        <div class="container">
+            <canvas id="seats">[Your browser is too old!]</canvas>
+        </div>
+    </div>
+    <script type="text/javascript" src="https://cdn.staticfile.org/touchjs/0.2.14/touch.min.js
+"></script>
+    <script type="text/javascript">
+        document.addEventListener('touchmove', function(e){
+            e.preventDefault()
+        })
+    var nowScale = 1;
+    var initScale = 0, maxScale = 1;
+    var seatList = [];
+    var normalX = 40, isScale = false, normalY = 100
+    var canvas = document.getElementById('seats')
+    var cxt = canvas.getContext('2d')
+    var container = document.querySelector('.container')
+    var windowWidth = window.screen.width,
+        windowHeight = window.screen.height;
+
+    var width = max_column * 40 + 50
+    var height = max_row * 40 + 20
+
+    canvas.setAttribute('width', width)
+    canvas.setAttribute('height', height)
+
+    var scale = windowWidth/ width;
+    initScale = scale;
+    nowScale = scale
+    transformContainer({
+        scale: initScale
+    })
+    function initCanvas(){
+        seats.forEach((elem) => {
+            let {left_px, top_px, column, row, flag} = elem
+
+            if(column !== 1){
+                left_px += (column - 1) * 10
+            }
+
+            if(row !== 1){
+                top_px += (row - 1) * 10
+            }
+            var img = null;
+            if(flag === 1){
+                img = new Image();
+                img.src = 'images/seat-buyed@3x.png';
+            } else if(flag === 2){
+                img = new Image();
+                img.src = 'images/seat-selected@3x.png';
+            } else if(flag === 0){
+                img = new Image();
+                img.src = 'images/seat@3x.png';
+            }
+            seatList.push({
+                x: left_px,
+                y: top_px
+            })
+            img.onload = function(){
+                drawCanvas(canvas, left_px, top_px, 30 , 30, img)
+            }
+        })
+    }
+
+    function drawCanvas(canvas, x, y, width, height, img){
+        cxt.drawImage(img, x, y, width, height)
+    }
+
+    function transformContainer(transform){
+        var str = []
+        if(transform.scale){
+            str.push(`scale(${transform.scale}, ${transform.scale})`)
+        } else {
+            str.push(`scale(${nowScale}, ${nowScale})`)
+        }
+
+        if(transform.x){
+            str.push(`translateX(${transform.x}px)`)
+        } else {
+            str.push(`translateX(0px)`)
+        }
+
+        if(transform.y){
+            str.push(`translateY(${transform.y}px)`)
+        } else {
+            str.push(`translateY(0px)`)
+        }
+
+        if(transform.z){
+            str.push(`translateZ(${transform.z}px)`)
+        } else {
+            str.push(`translateZ(0px)`)
+        }
+
+        container.style.transform = str.join(' ')
+        container.style.transformOrigin = `${normalX}px ${normalY}px 0px`
+        container.style.transition = 'transform .3s ease'
+        container.style.width = width + 'px'
+    }
+
+    function addEventListener(target){
+        var _container = document.querySelector('.container')
+        touch.on(target, 'pinchout', function(ev){
+            debugger
+        })
+
+        touch.on(target, 'doubletap', function(ev){
+            if(nowScale > initScale){
+                nowScale = initScale
+                isScale = false
+            } else {
+                isScale = true
+                nowScale = maxScale
+            }
+            transformContainer({
+                scale: nowScale
+            })
+        })
+
+        touch.on(target, 'dragstart', function(ev){
+            var disX = ev.distanceX, disY = ev.distanceY;
+            var transformStr = _container.style.transform;
+
+            var transXRegex = /\.*translateX\(([0-9]*|\-[0-9]*)px\)/i;
+            transXRegex.test(transformStr)
+            var translateX = RegExp.$1
+
+            var transYRegex = /\.*translateY\(([0-9]*|\-[0-9]*)px\)/i;
+            transYRegex.test(transformStr)
+            var translateY = RegExp.$1
+            if(!isScale){
+                transformContainer({
+                    x: Number(translateX) + parseInt(disX) * 15,
+                    y: translateY,
+                    scale: nowScale
+                })
+            } else {
+                transformContainer({
+                    x: Number(translateX) + parseInt(disX) * 10,
+                    y: Number(translateY) + parseInt(disY) * 10,
+                    scale: nowScale
+                })
+            }
+        })
+
+        //拖拽结束判断边界进行回弹
+        touch.on(target, 'dragend', function(ev){
+
+            var transformStr = _container.style.transform;
+
+            var transZRegex = /\.*translateX\(([0-9]*|\-[0-9]*)px\)/i;
+            transZRegex.test(transformStr)
+            var translateX = RegExp.$1
+
+            var transYRegex = /\.*translateY\(([0-9]*|\-[0-9]*)px\)/i;
+            transYRegex.test(transformStr)
+            var translateY = RegExp.$1
+
+            var taransform = {}
+            if(!isScale){
+                taransform = {
+                    x: translateX,
+                    y: translateY,
+                    scale: nowScale
+                }
+
+                if(Number(translateX) > 100){
+                    taransform.x = 0
+                } else if(Number(translateX) < -normalX){
+                    taransform.x = -normalX
+                }
+            } else {
+                taransform = {
+                    x: translateX,
+                    y: translateY,
+                    scale: nowScale
+                }
+
+                // x： 左边界  Number(translateX) > nowScale * normalX 临界点 transformX = 0
+                //    右边界   Number(translateX) < width * nowScale / 2 临界点 transformX =  -width * nowScale / 2 - normalX * nowScale
+
+                if(Number(translateX) > nowScale * normalX){
+                    taransform.x = 0
+                } else if(Number(translateX) < -width * nowScale / 2){
+                    taransform.x = -width * nowScale / 2 - normalX * nowScale
+                }
+
+                // y 上边界 Number(translateY) > initScale * normalY 临界点 transformY = 0
+                //   下边界 Number(translateY) < -height * nowScale / 3 临界点 0
+
+                if(Number(translateY) > initScale * normalY || Number(translateY) < -initScale * normalY ){
+                    taransform.y = 0
+                }
+            }
+
+            transformContainer(taransform)
+
+        })
+
+        touch.on(target, 'pinchin', function(ev){
+            nowScale = initScale
+            var transform = {
+                x: 0,
+                y: 0,
+                scale: nowScale
+            }
+            isScale = false
+            transformContainer(transform)
+        })
+
+        touch.on(target, 'pinchout', function(ev){
+            nowScale = maxScale
+            var transform = {
+                x: 0,
+                y: 0,
+                scale: nowScale
+            }
+            isScale = true
+            transformContainer(transform)
+        })
+
+        // var startDis, endDis;
+        // touch.on(target, 'pinchstart', function(ev){
+        //     startDis = ev.distance
+        //     isScale = true
+        // })
+
+        // touch.on(target, 'pinchend', function(ev){
+        //     endDis = ev.distance
+        //     var scale = ev.scale
+        //     nowScale = scale
+        //     var touches = ev.originEvent.changedTouches[0]
+        //     var {clientX, clientY} = touches
+
+        //     console.log(`${startDis}======${endDis}`)
+        //     if(startDis > endDis) { // 收缩
+        //         nowScale = initScale
+        //     } else{
+        //         nowScale = maxScale
+        //     }
+
+        //     var transform = {
+        //         x: 0,
+        //         y: 0,
+        //         scale: nowScale
+        //     }
+
+        //     transformContainer(transform)
+        //     endDis = 0;
+        //     startDis = 0;
+        //     if(scale = initScale){
+        //         isScale = false
+        //     }
+        // })
+    }
+
+    canvas.addEventListener('click', function(event){
+        var x = canvas.getBoundingClientRect().left;
+        var y = canvas.getBoundingClientRect().top;
+
+        img = new Image();
+        img.src = 'images/seat-buyed@3x.png';
+        cxt.drawImage(img, x, y, 30, 30)
+    })
+    addEventListener('.demo')
+    initCanvas()
+    </script>
+</body>
+</html>
