@@ -22,11 +22,13 @@
     }
     .demo{
         touch-action: auto;
-
         width: 100%;
         height: auto;
         float: left;
         overflow: hidden;
+    }
+    #seats{
+        position: absolute;
     }
 </style>
 <body>
@@ -44,7 +46,8 @@
     var nowScale = 1;
     var initScale = 0, maxScale = 1;
     var seatList = [];
-    var normalX = 40, isScale = false, normalY = 100
+    var normalX = 40, isScale = false, normalY = 100;
+    var isPinching = false
     var canvas = document.getElementById('seats')
     var cxt = canvas.getContext('2d')
     var container = document.querySelector('.container')
@@ -57,33 +60,44 @@
     canvas.setAttribute('width', width)
     canvas.setAttribute('height', height)
 
+    container.style.width = width + 'px'
+    container.style.height = height + 'px'
+
     var scale = windowWidth/ width;
     initScale = scale;
     nowScale = scale
-    transformContainer({
-        scale: initScale
-    })
-    function initCanvas(){
-        seats.forEach((elem) => {
-            let {left_px, top_px, column, row, flag} = elem
+    // transformContainer({
+    //     scale: initScale
+    // })
 
-            if(column !== 1){
+    // flag 标示 0：普通座位，1：情侣左座，2：情侣右座
+    // status 0-已售 1-正常 2-已选择
+    var _seats = JSON.parse(JSON.stringify(seats))
+    function initCanvas(x, y){
+        _seats.forEach((elem) => {
+            let {left_px, top_px, column, row, flag, status} = elem
+
+            if(column === 1){// 第一列
+                left_px = left_px
+            } else if(column !== 1 && flag != 2){ // 非第一列且非情侣右座
                 left_px += (column - 1) * 10
+            } else if(column !== 1 && flag === 2){ // 非第一列且情侣右座
+                left_px += (column - 2) * 10
             }
 
             if(row !== 1){
                 top_px += (row - 1) * 10
             }
             var img = null;
-            if(flag === 1){
-                img = new Image();
-                img.src = 'images/seat-buyed@3x.png';
-            } else if(flag === 2){
-                img = new Image();
-                img.src = 'images/seat-selected@3x.png';
-            } else if(flag === 0){
+            if(status === 1){
                 img = new Image();
                 img.src = 'images/seat@3x.png';
+            } else if(status === 2){
+                img = new Image();
+                img.src = 'images/seat-selected@3x.png';
+            } else if(status === 0){ // 已售
+                img = new Image();
+                img.src = 'images/seat-buyed@3x.png';
             }
             seatList.push({
                 x: left_px,
@@ -133,9 +147,6 @@
 
     function addEventListener(target){
         var _container = document.querySelector('.container')
-        touch.on(target, 'pinchout', function(ev){
-            debugger
-        })
 
         touch.on(target, 'doubletap', function(ev){
             if(nowScale > initScale){
@@ -230,18 +241,49 @@
 
         })
 
+        touch.on(target, 'pinchend', function(ev){
+
+            var transform = {
+                x: 0,
+                y: 0,
+                scale: nowScale
+            }
+            isPinching = false
+            transformContainer(transform)  
+        }) 
+
         touch.on(target, 'pinchin', function(ev){
+            // if(!isPinching){
+            //     nowScale = initScale
+            //     isPinching = true
+            //     isScale = true
+            // }
+
+            var scale = ev.scale
+
+            // nowScale = scale < initScale ? initScale : scale
+            // nowScale = scale
             nowScale = initScale
             var transform = {
                 x: 0,
                 y: 0,
                 scale: nowScale
             }
-            isScale = false
+            isScale = true
             transformContainer(transform)
         })
 
         touch.on(target, 'pinchout', function(ev){
+            // if(!isPinching){
+            //     nowScale = maxScale
+            //     isPinching = true
+            //     isScale = true
+            // }
+
+            var scale = ev.scale
+
+            // nowScale = scale > maxScale ? maxScale : scale
+
             nowScale = maxScale
             var transform = {
                 x: 0,
@@ -252,49 +294,35 @@
             transformContainer(transform)
         })
 
-        // var startDis, endDis;
-        // touch.on(target, 'pinchstart', function(ev){
-        //     startDis = ev.distance
-        //     isScale = true
-        // })
+        touch.on(canvas, 'tap', function(ev){
+            var touches = ev.originEvent.changedTouches;
 
-        // touch.on(target, 'pinchend', function(ev){
-        //     endDis = ev.distance
-        //     var scale = ev.scale
-        //     nowScale = scale
-        //     var touches = ev.originEvent.changedTouches[0]
-        //     var {clientX, clientY} = touches
+            var pageX = touches[0].pageX;
+            var pageY = touches[0].pageY;
 
-        //     console.log(`${startDis}======${endDis}`)
-        //     if(startDis > endDis) { // 收缩
-        //         nowScale = initScale
-        //     } else{
-        //         nowScale = maxScale
-        //     }
+            var img = new Image();
+            img.src = 'images/seat-selected@3x.png';
+            var cc = canvas.getBoundingClientRect();
+            var cX = cc.x, cY = cc.y;
+            console.log(`${cc.x}===${cc.y}` + '====' + pageX + '====' + pageY)
+            cxt.drawImage(img, (pageX - cX) / nowScale , (pageY - cY) / nowScale, 30, 30)
+            // var aa = cxt.isPointInPath((pageX - cX) / nowScale , (pageY - cY) / nowScale)
+            var aa = cxt.isPointInPath(pageX , pageY )
+            console.log(aa)
+            // cxt.drawImage(img, (pageX + cX) / nowScale, (pageY + cY) / nowScale, 30, 30)
+            // cxt.drawImage(img, pageX , pageY , 30, 30)
 
-        //     var transform = {
-        //         x: 0,
-        //         y: 0,
-        //         scale: nowScale
-        //     }
-
-        //     transformContainer(transform)
-        //     endDis = 0;
-        //     startDis = 0;
-        //     if(scale = initScale){
-        //         isScale = false
-        //     }
-        // })
+        })
     }
 
-    canvas.addEventListener('click', function(event){
-        var x = canvas.getBoundingClientRect().left;
-        var y = canvas.getBoundingClientRect().top;
+    // canvas.addEventListener('click', function(event){
+    //     var x = canvas.getBoundingClientRect()   .left;
+    //     var y = canvas.getBoundingClientRect().top;
 
-        img = new Image();
-        img.src = 'images/seat-buyed@3x.png';
-        cxt.drawImage(img, x, y, 30, 30)
-    })
+    //     img = new Image();
+    //     img.src = 'images/seat-buyed@3x.png';
+    //     cxt.drawImage(img, x, y, 30, 30)
+    // })
     addEventListener('.demo')
     initCanvas()
     </script>
